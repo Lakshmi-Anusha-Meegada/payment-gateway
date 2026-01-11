@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Secure Checkout</title>
+
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .card {
+      background: #ffffff;
+      width: 420px;
+      padding: 25px;
+      border-radius: 16px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+      text-align: center;
+    }
+
+    h2 {
+      margin-top: 0;
+      color: #333;
+    }
+
+    .amount {
+      font-size: 26px;
+      font-weight: bold;
+      color: #4caf50;
+      margin: 10px 0;
+    }
+
+    .order-id {
+      font-size: 13px;
+      color: #777;
+      margin-bottom: 20px;
+      word-break: break-all;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+
+    .upi-btn {
+      background: #5a67d8;
+      color: white;
+    }
+
+    .processing { color: #ff9800; font-weight: bold; }
+    .success { color: #2e7d32; font-weight: bold; }
+    .error { color: #d32f2f; font-weight: bold; }
+  </style>
+</head>
+
+<body>
+
+<div class="card">
+  <h2>🔐 Secure Payment</h2>
+
+  <div class="amount" id="amount">₹0.00</div>
+  <div class="order-id">Order ID: <span id="orderId"></span></div>
+
+  <button class="upi-btn" onclick="showUPI()">Pay with UPI</button>
+
+  <form id="upiForm" style="display:none" onsubmit="payUPI(event)">
+    <input id="vpa" placeholder="user@bank" required />
+    <button class="upi-btn" type="submit">Pay Now</button>
+  </form>
+
+  <div id="processing" style="display:none">⏳ Processing payment...</div>
+  <div id="success" style="display:none">✅ Payment Successful<br>Payment ID: <span id="paymentId"></span></div>
+  <div id="error" style="display:none">❌ Payment Failed</div>
+</div>
+
+<script>
+  const API_KEY = "key_test_abc123";
+  const API_SECRET = "secret_test_xyz789";
+
+  const params = new URLSearchParams(window.location.search);
+  const orderId = params.get("order_id");
+
+  document.getElementById("orderId").innerText = orderId;
+
+  // 🔹 Fetch order (PUBLIC)
+  fetch(`http://localhost:8000/api/v1/orders/${orderId}/public`)
+    .then(res => res.json())
+    .then(order => {
+      document.getElementById("amount").innerText =
+        "₹" + (order.amount / 100).toFixed(2);
+    });
+
+  function showUPI() {
+    document.getElementById("upiForm").style.display = "block";
+  }
+
+  function payUPI(e) {
+    e.preventDefault();
+
+    document.getElementById("upiForm").style.display = "none";
+    document.getElementById("processing").style.display = "block";
+
+    const vpa = document.getElementById("vpa").value;
+
+    // 🔹 CREATE PAYMENT (AUTH REQUIRED)
+    fetch("http://localhost:8000/api/v1/payments", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Api-Key": API_KEY,
+        "X-Api-Secret": API_SECRET
+      },
+      body: JSON.stringify({
+        order_id: orderId,
+        method: "upi",
+        vpa
+      })
+    })
+    .then(res => res.json())
+    .then(payment => pollStatus(payment.id));
+  }
+
+  function pollStatus(paymentId) {
+    const timer = setInterval(() => {
+      fetch(`http://localhost:8000/api/v1/payments/${paymentId}`, {
+        headers: {
+          "X-Api-Key": API_KEY,
+          "X-Api-Secret": API_SECRET
+        }
+      })
+      .then(res => res.json())
+      .then(p => {
+        if (p.status === "success") {
+          document.getElementById("processing").style.display = "none";
+          document.getElementById("success").style.display = "block";
+          document.getElementById("paymentId").innerText = paymentId;
+          clearInterval(timer);
+        }
+
+        if (p.status === "failed") {
+          document.getElementById("processing").style.display = "none";
+          document.getElementById("error").style.display = "block";
+          clearInterval(timer);
+        }
+      });
+    }, 2000);
+  }
+</script>
+
+</body>
+</html>
