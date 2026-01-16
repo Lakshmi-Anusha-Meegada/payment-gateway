@@ -5,10 +5,14 @@ const { seedTestMerchant } = require("./seed");
 const testRoutes = require("./routes/test");
 const orderRoutes = require("./routes/orders");
 const paymentRoutes = require("./routes/payments");
+const cors = require("cors");
 
 dotenv.config({ path: "../.env" });
 
 const app = express();
+
+app.use(cors());
+
 app.use(express.json());
 
 app.use(paymentRoutes);

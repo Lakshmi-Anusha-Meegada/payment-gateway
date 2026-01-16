@@ -93,12 +93,15 @@ router.get("/api/v1/orders/:order_id", authMiddleware, async (req, res) => {
   });
 });
 
-// 🔓 PUBLIC ORDER FETCH (NO AUTH)
+
+// PUBLIC ORDER FETCH (NO AUTH – for checkout page)
 router.get("/api/v1/orders/:order_id/public", async (req, res) => {
   const { order_id } = req.params;
 
   const result = await pool.query(
-    `SELECT id, amount, currency, status FROM orders WHERE id = $1`,
+    `SELECT id, amount, currency, status
+     FROM orders
+     WHERE id = $1`,
     [order_id]
   );
 
@@ -111,8 +114,14 @@ router.get("/api/v1/orders/:order_id/public", async (req, res) => {
     });
   }
 
-  res.status(200).json(result.rows[0]);
-});
+  const order = result.rows[0];
 
+  res.status(200).json({
+    id: order.id,
+    amount: order.amount,
+    currency: order.currency,
+    status: order.status
+  });
+});
 
 module.exports = router;
